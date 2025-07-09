@@ -4,8 +4,13 @@ import pandas as pd
 import pyarrow as pa
 
 # --- Configuration ---
-RAW_DATA_PATH = '../data/raw/abstracts_sessions_authors_topics.json'
-CLEANED_DATA_PATH = '../data/processed/cleaned_dataframe.parquet'
+current_script_path = os.path.abspath(__file__)
+current_script_dir = os.path.dirname(current_script_path)
+project_root = os.path.join(current_script_dir, '..', '..')
+project_root = os.path.abspath(project_root)
+
+RAW_DATA_PATH = os.path.join(project_root, 'data', 'raw', 'abstracts_sessions_authors_topics.json')
+CLEANED_DATA_PATH = os.path.join(project_root, 'data', 'processed', 'cleaned_dataframe.parquet')
 
 def load_raw_data (filepath:str) -> pd.DataFrame:
     with open(filepath) as f:
