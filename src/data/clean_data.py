@@ -1,9 +1,11 @@
 import json
+import os
 import pandas as pd
+import pyarrow as pa
 
 # --- Configuration ---
 RAW_DATA_PATH = '../data/raw/abstracts_sessions_authors_topics.json'
-CLEANED_DATA_PATH = '../data/processed/cleaned_dataframe.csv'
+CLEANED_DATA_PATH = '../data/processed/cleaned_dataframe.parquet'
 
 def load_raw_data (filepath:str) -> pd.DataFrame:
     with open(filepath) as f:
@@ -92,5 +94,21 @@ def fix_missing_values_content_raw(df):
     df["content_raw"] = df["affiliationcountry"].fillna("")
     return df
 
+def clean_data_pipeline(df):
+    df = explode_authors(df)
+    df = drop_unused_columns(df)
+    df = convert_object_columns_to_string(df)
+    df = convert_language_ref_column(df)
+    df = convert_affiliationcountry_ref_column(df)
+    df = drop_duplicate_rows(df)
+    df = fix_missing_values_content_raw(df)
+    return df
 
-#TODO Main
+def save_cleaned_data(df: pd.DataFrame, filepath:str):
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    df.to_parquet(filepath, index=False)
+
+if __name__ == "__main__":
+    raw_df = load_raw_data(RAW_DATA_PATH)
+    cleaned_df = clean_data_pipeline(raw_df)
+    save_cleaned_data(df=cleaned_df, filepath=CLEANED_DATA_PATH)
