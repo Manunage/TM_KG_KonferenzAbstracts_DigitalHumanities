@@ -6,7 +6,7 @@ import pyarrow as pa
 # --- Configuration ---
 current_script_path = os.path.abspath(__file__)
 current_script_dir = os.path.dirname(current_script_path)
-project_root = os.path.join(current_script_dir, '..', '..')
+project_root = os.path.join(current_script_dir, '..')
 project_root = os.path.abspath(project_root)
 
 RAW_DATA_PATH = os.path.join(project_root, 'data', 'raw', 'abstracts_sessions_authors_topics.json')
