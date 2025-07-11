@@ -96,7 +96,11 @@ def drop_duplicate_rows(df):
     return df
 
 def fix_missing_values_content_raw(df):
-    df["content_raw"] = df["affiliationcountry"].fillna("")
+    df["content_raw"] = df["content_raw"].fillna("")
+    return df
+
+def add_combined_text(df):
+    df['combined_text'] = df['title'] + " " + df['content_raw']
     return df
 
 def clean_data_pipeline(df):
@@ -107,6 +111,7 @@ def clean_data_pipeline(df):
     df = convert_affiliationcountry_ref_column(df)
     df = drop_duplicate_rows(df)
     df = fix_missing_values_content_raw(df)
+    df = add_combined_text(df)
     return df
 
 def save_cleaned_data(df: pd.DataFrame, filepath:str):
