@@ -5,6 +5,7 @@ from sklearn.cluster import KMeans
 from sentence_transformers import SentenceTransformer
 import logging
 import numpy as np
+import torch
 
 # --- Configuration ---
 current_script_path = os.path.abspath(__file__)
@@ -14,6 +15,7 @@ project_root = os.path.abspath(project_root)
 CLEANED_DATA_PATH = os.path.join(project_root, 'data', 'processed', 'cleaned_dataframe.parquet')
 EMBEDDINGS_PATH = os.path.join(project_root, 'data', 'processed', 'abstract_embeddings.npy')
 PREPARED_DATA_PATH = os.path.join(project_root, 'data', 'processed', 'prepared_dataframe.parquet')
+FINAL_DATA_PATH = os.path.join(project_root, 'data', 'processed', 'final_dataframe.parquet')
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -67,8 +69,8 @@ def create_session_topics():
         if cluster_abstracts:
             combined_text = " ".join(cluster_abstracts)
             # Extract keywords from the combined text to represent the topic
-            topic_keywords = kw_model.extract_keywords(combined_text, keyphrase_ngram_range=(5, 5),
-                                                       stop_words=[], top_n=5)
+            topic_keywords = kw_model.extract_keywords(combined_text, keyphrase_ngram_range=(1, 10),
+                                                       stop_words=[], top_n=3)
             session_topics[i] = ", ".join([kw[0] for kw in topic_keywords])
         else:
             session_topics[i] = "Undefined Topic"  # Should not happen with enough data
@@ -99,11 +101,19 @@ if __name__ == "__main__":
     if 'keywords' not in df.columns:
         df['keywords'] = extract_keyword_column()
 
+
     created_session_topics = create_session_topics()
 
     for cluster_id, topic_name in created_session_topics.items():
         print(f"Cluster {cluster_id}: {topic_name}")
 
+    topic_suggestions = {
+        cluster_id: [keyword.strip() for keyword in keywords_string.split(',')]
+        for cluster_id, keywords_string in created_session_topics.items()
+    }
 
-# os.makedirs(os.path.dirname(PREPARED_DATA_PATH), exist_ok=True)
-# df.to_parquet(PREPARED_DATA_PATH, index=False)
+    df['session_topic_suggestions'] = df['cluster_label'].map(topic_suggestions)
+
+    if not os.path.exists(FINAL_DATA_PATH):
+        os.makedirs(os.path.dirname(FINAL_DATA_PATH), exist_ok=True)
+        df.to_parquet(FINAL_DATA_PATH, index=False)
