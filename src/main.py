@@ -78,7 +78,9 @@ def create_session_topics():
 
 
 if __name__ == "__main__":
-    if os.path.exists(PREPARED_DATA_PATH):
+    if os.path.exists(FINAL_DATA_PATH):
+        df = pd.read_parquet(PREPARED_DATA_PATH)
+    elif os.path.exists(PREPARED_DATA_PATH):
         df = pd.read_parquet(PREPARED_DATA_PATH)
     else:
         df = pd.read_parquet(CLEANED_DATA_PATH)
@@ -100,18 +102,15 @@ if __name__ == "__main__":
     if 'keywords' not in df.columns:
         df['keywords'] = extract_keyword_column()
 
-
-    created_session_topics = create_session_topics()
-
-    for cluster_id, topic_name in created_session_topics.items():
-        print(f"Cluster {cluster_id}: {topic_name}")
-
-    topic_suggestions = {
-        cluster_id: [keyword.strip() for keyword in keywords_string.split(',')]
-        for cluster_id, keywords_string in created_session_topics.items()
-    }
-
-    df['session_topic_suggestions'] = df['cluster_label'].map(topic_suggestions)
+    if 'session_topic_suggestions' not in df.columns:
+        created_session_topics = create_session_topics()
+        for cluster_id, topic_name in created_session_topics.items():
+            print(f"Cluster {cluster_id}: {topic_name}")
+        topic_suggestions = {
+            cluster_id: [keyword.strip() for keyword in keywords_string.split(',')]
+            for cluster_id, keywords_string in created_session_topics.items()
+        }
+        df['session_topic_suggestions'] = df['cluster_label'].map(topic_suggestions)
 
     if not os.path.exists(FINAL_DATA_PATH):
         os.makedirs(os.path.dirname(FINAL_DATA_PATH), exist_ok=True)
