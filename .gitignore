@@ -11,4 +11,6 @@ build/
 *.egg-info/
 *.log
 *.swp
-data/processed/
+data/processed/abstract_embeddings.npy
+data/processed/cleaned_dataframe.parquet
+data/processed/prepared_dataframe.parquet

@@ -5,7 +5,6 @@ from sklearn.cluster import KMeans
 from sentence_transformers import SentenceTransformer
 import logging
 import numpy as np
-import torch
 
 # --- Configuration ---
 current_script_path = os.path.abspath(__file__)
@@ -69,8 +68,8 @@ def create_session_topics():
         if cluster_abstracts:
             combined_text = " ".join(cluster_abstracts)
             # Extract keywords from the combined text to represent the topic
-            topic_keywords = kw_model.extract_keywords(combined_text, keyphrase_ngram_range=(1, 10),
-                                                       stop_words=[], top_n=3)
+            topic_keywords = kw_model.extract_keywords(combined_text, keyphrase_ngram_range=(1, 3),
+                                                       stop_words=['english', 'german'], top_n=10)
             session_topics[i] = ", ".join([kw[0] for kw in topic_keywords])
         else:
             session_topics[i] = "Undefined Topic"  # Should not happen with enough data
