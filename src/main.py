@@ -79,7 +79,7 @@ def create_session_topics():
 
 if __name__ == "__main__":
     if os.path.exists(FINAL_DATA_PATH):
-        df = pd.read_parquet(PREPARED_DATA_PATH)
+        df = pd.read_parquet(FINAL_DATA_PATH)
     elif os.path.exists(PREPARED_DATA_PATH):
         df = pd.read_parquet(PREPARED_DATA_PATH)
     else:
