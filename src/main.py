@@ -6,16 +6,7 @@ from sentence_transformers import SentenceTransformer
 import logging
 import numpy as np
 
-# --- Configuration ---
-current_script_path = os.path.abspath(__file__)
-current_script_dir = os.path.dirname(current_script_path)
-project_root = os.path.join(current_script_dir, '..')
-project_root = os.path.abspath(project_root)
-CLEANED_DATA_PATH = os.path.join(project_root, 'data', 'processed', 'cleaned_dataframe.parquet')
-EMBEDDINGS_PATH = os.path.join(project_root, 'data', 'processed', 'abstract_embeddings.npy')
-PREPARED_DATA_PATH = os.path.join(project_root, 'data', 'processed', 'prepared_dataframe.parquet')
-FINAL_DATA_PATH = os.path.join(project_root, 'data', 'processed', 'final_dataframe.parquet')
-
+import config
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -78,23 +69,23 @@ def create_session_topics():
 
 
 if __name__ == "__main__":
-    if os.path.exists(FINAL_DATA_PATH):
-        df = pd.read_parquet(FINAL_DATA_PATH)
-    elif os.path.exists(PREPARED_DATA_PATH):
-        df = pd.read_parquet(PREPARED_DATA_PATH)
+    if os.path.exists(config.FINAL_DATA_PATH):
+        df = pd.read_parquet(config.FINAL_DATA_PATH)
+    elif os.path.exists(config.PREPARED_DATA_PATH):
+        df = pd.read_parquet(config.PREPARED_DATA_PATH)
     else:
-        df = pd.read_parquet(CLEANED_DATA_PATH)
+        df = pd.read_parquet(config.CLEANED_DATA_PATH)
 
     df.info()
     model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
     kw_model = KeyBERT(model=model)
     num_topics = df['session_id'].nunique()
 
-    if os.path.exists(EMBEDDINGS_PATH):
-        abstract_embeddings = np.load(EMBEDDINGS_PATH)
+    if os.path.exists(config.EMBEDDINGS_PATH):
+        abstract_embeddings = np.load(config.EMBEDDINGS_PATH)
     else:
         abstract_embeddings = create_embeddings()
-        np.save(EMBEDDINGS_PATH, abstract_embeddings)
+        np.save(config.EMBEDDINGS_PATH, abstract_embeddings)
 
     if 'cluster_label' not in df.columns:
         df['cluster_label'] = create_clustering(num_topics, abstract_embeddings)
@@ -112,6 +103,6 @@ if __name__ == "__main__":
         }
         df['session_topic_suggestions'] = df['cluster_label'].map(topic_suggestions)
 
-    if not os.path.exists(FINAL_DATA_PATH):
-        os.makedirs(os.path.dirname(FINAL_DATA_PATH), exist_ok=True)
-        df.to_parquet(FINAL_DATA_PATH, index=False)
+    if not os.path.exists(config.FINAL_DATA_PATH):
+        os.makedirs(os.path.dirname(config.FINAL_DATA_PATH), exist_ok=True)
+        df.to_parquet(config.FINAL_DATA_PATH, index=False)

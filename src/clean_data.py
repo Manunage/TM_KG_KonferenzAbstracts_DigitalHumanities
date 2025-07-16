@@ -1,16 +1,9 @@
 import json
 import os
 import pandas as pd
-import pyarrow as pa
 
-# --- Configuration ---
-current_script_path = os.path.abspath(__file__)
-current_script_dir = os.path.dirname(current_script_path)
-project_root = os.path.join(current_script_dir, '..')
-project_root = os.path.abspath(project_root)
+import config
 
-RAW_DATA_PATH = os.path.join(project_root, 'data', 'raw', 'abstracts_sessions_authors_topics.json')
-CLEANED_DATA_PATH = os.path.join(project_root, 'data', 'processed', 'cleaned_dataframe.parquet')
 
 def load_raw_data (filepath:str) -> pd.DataFrame:
     with open(filepath) as f:
@@ -119,6 +112,6 @@ def save_cleaned_data(df: pd.DataFrame, filepath:str):
     df.to_parquet(filepath, index=False)
 
 if __name__ == "__main__":
-    raw_df = load_raw_data(RAW_DATA_PATH)
+    raw_df = load_raw_data(config.RAW_DATA_PATH)
     cleaned_df = clean_data_pipeline(raw_df)
-    save_cleaned_data(df=cleaned_df, filepath=CLEANED_DATA_PATH)
+    save_cleaned_data(df=cleaned_df, filepath=config.CLEANED_DATA_PATH)
