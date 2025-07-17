@@ -7,20 +7,17 @@ import config
 import os
 
 
-g = Graph()
+def createRdfGraphFromDataFrame(df):
+    g = Graph()
 
-g.bind("foaf", FOAF)
-g.bind("rdf", RDF)
-g.bind("rdfs", RDFS)
-g.bind("xsd", XSD)
-DC = Namespace("http://purl.org/dc/elements/1.1/")
-g.bind("dc", DC)
-EX = Namespace("http://example.org/abstract_kg#")
-g.bind("ex", EX)
-
-if __name__ == "__main__":
-
-    df = pd.read_parquet(config.FINAL_DATA_PATH)
+    g.bind("foaf", FOAF)
+    g.bind("rdf", RDF)
+    g.bind("rdfs", RDFS)
+    g.bind("xsd", XSD)
+    DC = Namespace("http://purl.org/dc/elements/1.1/")
+    g.bind("dc", DC)
+    EX = Namespace("http://example.org/abstract_kg#")
+    g.bind("ex", EX)
 
     created_abstracts = set()
     created_authors = set()
@@ -99,11 +96,13 @@ if __name__ == "__main__":
             g.add((session_uri, EX.coversTopic, topic_uri))
             created_session_topic_links.add(session_topic_link)
 
-        # ------------------------------------------
-        # Convert into format for gephi
-        nx_graph = nx.DiGraph()
-        nx_nodes_added = set()
+    return g
 
+
+def createNxGraphFromRdfGraph(g):
+    # Convert into format for gephi
+    nx_graph = nx.DiGraph()
+    nx_nodes_added = set()
     for s, p, o in g:
         # Convert URIs and Literals to strings for NetworkX node IDs
         # For better readability in Gephi, we'll try to use rdfs:label or a stripped URI part as the node 'label' attribute.
@@ -120,7 +119,7 @@ if __name__ == "__main__":
                 nx_graph.nodes[s_str]['label'] = str(label_val)
             else:
                 # Fallback: use the last part of the URI as label
-                    nx_graph.nodes[s_str]['label'] = s.split('#')[-1] if '#' in s_str else s.split('/')[-1]
+                nx_graph.nodes[s_str]['label'] = s.split('#')[-1] if '#' in s_str else s.split('/')[-1]
 
             # Add RDF type as a node attribute (useful for coloring/filtering in Gephi)
             rdf_type_val = g.value(s, RDF.type)
@@ -173,6 +172,15 @@ if __name__ == "__main__":
         edge_label = p.split('#')[-1] if '#' in p_str else p.split('/')[-1]
         nx_graph.add_edge(s_str, o_str, relation=edge_label)
 
-    print(
-        f"--- Converted to NetworkX Graph with {nx_graph.number_of_nodes()} nodes and {nx_graph.number_of_edges()} edges ---")
-    print("-" * 30)
+    return nx_graph
+
+
+if __name__ == "__main__":
+
+
+    df = pd.read_parquet(config.FINAL_DATA_PATH)
+
+    g = createRdfGraphFromDataFrame(df)
+    nx_graph = createNxGraphFromRdfGraph(g)
+
+    nx.write_gexf(nx_graph, config.GRAPH_PATH)

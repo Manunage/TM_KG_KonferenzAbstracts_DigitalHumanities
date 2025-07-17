@@ -14,3 +14,4 @@ build/
 data/processed/abstract_embeddings.npy
 data/processed/cleaned_dataframe.parquet
 data/processed/prepared_dataframe.parquet
+data/processed/knowledge_graph.gexf
