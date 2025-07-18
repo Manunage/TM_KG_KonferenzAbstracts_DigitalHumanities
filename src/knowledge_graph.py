@@ -142,8 +142,6 @@ def createNxGraphFromRdfGraph(g):
 if __name__ == "__main__":
     df = pd.read_parquet(config.FINAL_DATA_PATH)
 
-    g = createRdfGraphFromDataFrame(df)
-
-    nx_graph = createNxGraphFromRdfGraph(g)
-
+    graph_original_data = createRdfGraphFromDataFrame(df)
+    nx_graph = createNxGraphFromRdfGraph(graph_original_data)
     nx.write_gexf(nx_graph, config.GRAPH_PATH)
