@@ -88,9 +88,7 @@ def createNxGraphFromRdfGraph(g):
     class_uris_to_exclude = {str(EX.Abstract),
                              str(EX.Topic),
                              str(EX.Session),
-                             str(FOAF.Person),
-                             str(RDF.Property),
-                             str(RDFS.Class)
+                             str(FOAF.Person)
                              }
 
     # First pass: Add all URIs and BNodes as NetworkX nodes with their attributes
@@ -134,7 +132,11 @@ def createNxGraphFromRdfGraph(g):
             edge_label = get_label_from_uri(p_str)
             nx_graph.add_edge(s_str, o_str, relation=edge_label)
 
+    nodes_to_remove = [node_id for node_id in nx_graph.nodes() if node_id in class_uris_to_exclude]
+    nx_graph.remove_nodes_from(nodes_to_remove)
+
     return nx_graph
+
 
 
 if __name__ == "__main__":
