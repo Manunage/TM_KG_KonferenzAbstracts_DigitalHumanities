@@ -85,8 +85,7 @@ def createNxGraphFromRdfGraph(g):
         return uri_str.rsplit('/', 1)[-1]
 
     # First pass: Add all URIs and BNodes as NetworkX nodes with their attributes
-    # This ensures all potential subjects/objects are properly initialized as nodes
-    for node_uri in g.all_nodes(): # Iterate through all unique subjects and objects
+    for node_uri in g.all_nodes():
         node_str = str(node_uri)
         if isinstance(node_uri, URIRef) or isinstance(node_uri, BNode):
             if node_str not in nx_graph:
@@ -112,66 +111,25 @@ def createNxGraphFromRdfGraph(g):
                         if prop_name not in ['label', 'type']: # 'type' is for RDF.type
                             nx_graph.nodes[node_str][prop_name] = str(val)
 
-    # Second pass: Add edges
+    # Add edges
     for s, p, o in g:
         s_str = str(s)
         p_str = str(p)
         o_str = str(o)
 
-        # Only create an edge if BOTH subject and object are URIRefs or BNodes
-        # This prevents literals from becoming nodes in NetworkX
         if (isinstance(s, URIRef) or isinstance(s, BNode)) and \
            (isinstance(o, URIRef) or isinstance(o, BNode)):
             edge_label = get_label_from_uri(p_str)
             nx_graph.add_edge(s_str, o_str, relation=edge_label)
-        # If 'o' is a Literal, it's a property value and should already be an attribute of 's'
-        # We explicitly do NOT create an edge to a literal.
-
-    print(
-        f"--- Converted to NetworkX Graph with {nx_graph.number_of_nodes()} nodes and {nx_graph.number_of_edges()} edges ---")
-    print("-" * 30)
 
     return nx_graph
 
 if __name__ == "__main__":
-
 
     df = pd.read_parquet(config.FINAL_DATA_PATH)
 
     g = createRdfGraphFromDataFrame(df)
 
     nx_graph = createNxGraphFromRdfGraph(g)
-
-
-    print("\n--- Exploring the NetworkX Graph (nx_graph) ---")
-    # 1. Basic Information
-    print(f"Total Nodes in NetworkX Graph: {nx_graph.number_of_nodes()}")
-    print(f"Total Edges in NetworkX Graph: {nx_graph.number_of_edges()}")
-    print("-" * 30)
-    # 2. Inspecting Nodes and their Attributes
-    print("\n--- Sample of Nodes and their Attributes (first 10) ---")
-    for i, (node_id, attributes) in enumerate(nx_graph.nodes(data=True)):
-        if i >= 10:
-            break
-        print(f"Node ID: {node_id}")
-        print(f"  Attributes: {attributes}")
-        # Check for common issues
-        if 'label' not in attributes or not attributes['label']:
-            print(
-                f"  WARNING: Node {node_id} is missing a 'label' attribute or it's empty. Gephi might use the raw ID.")
-        print("-" * 10)
-    print("... (showing first 10 nodes)")
-    print("-" * 30)
-    # 3. Inspecting Edges and their Attributes
-    print("\n--- Sample of Edges and their Attributes (first 10) ---")
-    for i, (source, target, attributes) in enumerate(nx_graph.edges(data=True)):
-        if i >= 10:
-            break
-        print(f"Edge: {source} --({attributes.get('relation', 'NO_RELATION')})--> {target}")
-        print(f"  Attributes: {attributes}")
-        print("-" * 10)
-    print("... (showing first 10 edges)")
-    print("-" * 30)
-
 
     nx.write_gexf(nx_graph, config.GRAPH_PATH)
