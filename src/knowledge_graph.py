@@ -28,7 +28,7 @@ def createRdfGraphFromDataFrame(df):
         abstract_id = row['id']
         abstract_uri = EX[f"abstract_{abstract_id}"]
         if abstract_uri not in created_abstracts:
-            g.add((abstract_uri, RDF.type, EX.ResearchAbstract))
+            g.add((abstract_uri, RDF.type, EX.Abstract))
             g.add((abstract_uri, DC.title, Literal(row['title'], lang=row['language'])))
             g.add((abstract_uri, DC.language, Literal(row['language'])))
             g.add((abstract_uri, EX.hasAbstractText, Literal(row['content_raw'], lang=row['language'])))
