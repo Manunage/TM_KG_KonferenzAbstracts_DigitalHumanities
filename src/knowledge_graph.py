@@ -5,6 +5,9 @@ import pandas as pd
 
 import config
 
+DC = Namespace("http://purl.org/dc/elements/1.1/")
+EX = Namespace("http://example.org/abstract_kg#")
+
 def createRdfGraphFromDataFrame(df):
     g = Graph()
 
@@ -12,9 +15,7 @@ def createRdfGraphFromDataFrame(df):
     g.bind("rdf", RDF)
     g.bind("rdfs", RDFS)
     g.bind("xsd", XSD)
-    DC = Namespace("http://purl.org/dc/elements/1.1/")
     g.bind("dc", DC)
-    EX = Namespace("http://example.org/abstract_kg#")
     g.bind("ex", EX)
 
     created_abstracts = set()
@@ -84,9 +85,20 @@ def createNxGraphFromRdfGraph(g):
             return uri_str.rsplit('#', 1)[-1]
         return uri_str.rsplit('/', 1)[-1]
 
+    class_uris_to_exclude = {str(EX.Abstract),
+                             str(EX.Topic),
+                             str(EX.Session),
+                             str(FOAF.Person),
+                             str(RDF.Property),
+                             str(RDFS.Class)
+                             }
+
     # First pass: Add all URIs and BNodes as NetworkX nodes with their attributes
     for node_uri in g.all_nodes():
         node_str = str(node_uri)
+        if node_str in class_uris_to_exclude:
+            continue
+
         if isinstance(node_uri, URIRef) or isinstance(node_uri, BNode):
             if node_str not in nx_graph:
                 nx_graph.add_node(node_str)
@@ -108,7 +120,7 @@ def createNxGraphFromRdfGraph(g):
                     if isinstance(val, Literal):
                         prop_name = get_label_from_uri(str(prop))
                         # Avoid overwriting 'label' or 'rdf_type' if they were set above
-                        if prop_name not in ['label', 'type']: # 'type' is for RDF.type
+                        if prop_name not in ['label', 'type']:  # 'type' is for RDF.type
                             nx_graph.nodes[node_str][prop_name] = str(val)
 
     # Add edges
@@ -118,14 +130,14 @@ def createNxGraphFromRdfGraph(g):
         o_str = str(o)
 
         if (isinstance(s, URIRef) or isinstance(s, BNode)) and \
-           (isinstance(o, URIRef) or isinstance(o, BNode)):
+                (isinstance(o, URIRef) or isinstance(o, BNode)):
             edge_label = get_label_from_uri(p_str)
             nx_graph.add_edge(s_str, o_str, relation=edge_label)
 
     return nx_graph
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     df = pd.read_parquet(config.FINAL_DATA_PATH)
 
     g = createRdfGraphFromDataFrame(df)
