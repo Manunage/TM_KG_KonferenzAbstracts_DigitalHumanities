@@ -1,7 +1,7 @@
 import os
 from keybert import KeyBERT
 import pandas as pd
-from sklearn.cluster import KMeans
+from sklearn.cluster import KMeans, HDBSCAN
 from sentence_transformers import SentenceTransformer
 import logging
 import numpy as np
@@ -28,18 +28,38 @@ def extract_keywords_by_language(row):
 
 def create_embeddings():
     logger.info("Generating abstract embeddings...")
-    abstract_embeddings = model.encode(df['combined_text'].tolist(), show_progress_bar=True)
+    embeddings = model.encode(df['combined_text'].tolist(), show_progress_bar=True)
     logger.info("Embeddings generated.")
-    return abstract_embeddings
+    return embeddings
+
+def create_clustering_HDBSCAN(embeddings):
+    logger.info("Starting clustering using HDBSCAN")
+    hdbscan_model = HDBSCAN()
+    cluster_labels = hdbscan_model.fit_predict(embeddings)
+
+    # Remove noise, as all points should be assigned to a topic
+    noise_indices = np.where(cluster_labels == -1)[0]
+    if len(noise_indices) > 0:
+        logger.info(f"Reassigning {len(noise_indices)} noise points to closest clusters...")
+        most_probable_clusters = np.argmax(hdbscan_model.probabilities_[noise_indices], axis=1)
+        cluster_labels[noise_indices] = most_probable_clusters
+        logger.info("Noise points reassigned.")
+    else:
+        logger.info("No noise points found, all points already assigned to clusters.")
+
+    num_found_clusters = len(np.unique(cluster_labels))
+    logger.info(f"HDBSCAN found {num_found_clusters} clusters (all points now assigned).")
+
+    return cluster_labels
 
 
-def create_clustering(number_of_topics, embeddings):
+def create_clustering_KMeans(number_of_topics, embeddings):
+    logger.info("Starting clustering using KMeans")
     logger.info(f"Attempting to find {number_of_topics} session topics.")
-    logger.info("Starting clustering...")
     kmeans_model = KMeans(n_clusters=number_of_topics, random_state=42, n_init=10)
-    result = kmeans_model.fit_predict(embeddings)
+    cluster_labels = kmeans_model.fit_predict(embeddings)
     logger.info("Abstracts assigned to clusters.")
-    return result
+    return cluster_labels
 
 
 def extract_keyword_column():
@@ -49,23 +69,22 @@ def extract_keyword_column():
     return result
 
 
-def create_session_topics():
+def create_topics(df):
     logger.info("Defining session topics from clusters...")
-    session_topics = {}
-    for i in range(num_topics):
+    number_of_topics = df['cluster_label'].nunique()
+    created_topics = {}
+    for i in range(number_of_topics):
         logger.info("At topic number " + str(i))
         cluster_abstracts = df[df['cluster_label'] == i]['combined_text'].tolist()
-        # cluster_abstracts_flattened = [word for sublist in cluster_abstracts for word in sublist]
         if cluster_abstracts:
             combined_text = " ".join(cluster_abstracts)
-            # Extract keywords from the combined text to represent the topic
             topic_keywords = kw_model.extract_keywords(combined_text, keyphrase_ngram_range=(1, 5),
                                                        stop_words=['english', 'german'], top_n=5)
-            session_topics[i] = ", ".join([kw[0] for kw in topic_keywords])
+            created_topics[i] = ", ".join([kw[0] for kw in topic_keywords])
         else:
-            session_topics[i] = "Undefined Topic"  # Should not happen with enough data
+            created_topics[i] = "Undefined Topic"
     logger.info("Session topics defined.")
-    return session_topics
+    return created_topics
 
 
 if __name__ == "__main__":
@@ -79,7 +98,11 @@ if __name__ == "__main__":
     df.info()
     model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
     kw_model = KeyBERT(model=model)
-    num_topics = df['session_id'].nunique()
+    useHDBSCAN = True
+
+    num_topics = 0
+    if not useHDBSCAN:
+        num_topics = df['topic_id'].nunique()
 
     if os.path.exists(config.EMBEDDINGS_PATH):
         abstract_embeddings = np.load(config.EMBEDDINGS_PATH)
@@ -88,20 +111,24 @@ if __name__ == "__main__":
         np.save(config.EMBEDDINGS_PATH, abstract_embeddings)
 
     if 'cluster_label' not in df.columns:
-        df['cluster_label'] = create_clustering(num_topics, abstract_embeddings)
+        if useHDBSCAN:
+            df['cluster_label'] = create_clustering_HDBSCAN(embeddings=abstract_embeddings)
+            num_topics = df['cluster_label'].nunique()
+        else:
+            df['cluster_label'] = create_clustering_KMeans(number_of_topics=num_topics, embeddings=abstract_embeddings)
 
     if 'keywords' not in df.columns:
         df['keywords'] = extract_keyword_column()
 
-    if 'session_topic_suggestions' not in df.columns:
-        created_session_topics = create_session_topics()
-        for cluster_id, topic_name in created_session_topics.items():
+    if 'topic_suggestions' not in df.columns:
+        created_topics = create_topics(df)
+        for cluster_id, topic_name in created_topics.items():
             print(f"Cluster {cluster_id}: {topic_name}")
         topic_suggestions = {
             cluster_id: [keyword.strip() for keyword in keywords_string.split(',')]
-            for cluster_id, keywords_string in created_session_topics.items()
+            for cluster_id, keywords_string in created_topics.items()
         }
-        df['session_topic_suggestions'] = df['cluster_label'].map(topic_suggestions)
+        df['topic_suggestions'] = df['cluster_label'].map(topic_suggestions)
 
     if not os.path.exists(config.FINAL_DATA_PATH):
         os.makedirs(os.path.dirname(config.FINAL_DATA_PATH), exist_ok=True)
