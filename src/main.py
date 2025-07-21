@@ -20,7 +20,7 @@ def extract_keywords_by_language(row):
         stop_words_lang = 'german'
     return [keyword[0] for keyword in kw_model.extract_keywords(
         text,
-        keyphrase_ngram_range=(1, 3),
+        keyphrase_ngram_range=(1, 5),
         stop_words=stop_words_lang,
         top_n=5
     )]
@@ -32,9 +32,13 @@ def create_embeddings():
     logger.info("Embeddings generated.")
     return embeddings
 
+'''
+
+# EXPERIMENTAL, UNRESOLVED. DOES NOT PRODUCE GOOD CLUSTERS.
+
 def create_clustering_HDBSCAN(embeddings):
     logger.info("Starting clustering using HDBSCAN")
-    hdbscan_model = HDBSCAN()
+    hdbscan_model = HDBSCAN(min_cluster_size=2)
     cluster_labels = hdbscan_model.fit_predict(embeddings)
 
     # Remove noise, as all points should be assigned to a topic
@@ -52,10 +56,11 @@ def create_clustering_HDBSCAN(embeddings):
 
     return cluster_labels
 
+'''
 
 def create_clustering_KMeans(number_of_topics, embeddings):
     logger.info("Starting clustering using KMeans")
-    logger.info(f"Attempting to find {number_of_topics} session topics.")
+    logger.info(f"Attempting to find {number_of_topics} topics.")
     kmeans_model = KMeans(n_clusters=number_of_topics, random_state=42, n_init=10)
     cluster_labels = kmeans_model.fit_predict(embeddings)
     logger.info("Abstracts assigned to clusters.")
@@ -75,7 +80,12 @@ def create_topics(df):
     created_topics = {}
     for i in range(number_of_topics):
         logger.info("At topic number " + str(i))
+
+        # cluster_abstracts = df[df['cluster_label'] == i]['keywords'].tolist()
+        # cluster_abstracts = [keyword for sublist in cluster_abstracts for keyword in sublist]
+
         cluster_abstracts = df[df['cluster_label'] == i]['combined_text'].tolist()
+
         if cluster_abstracts:
             combined_text = " ".join(cluster_abstracts)
             topic_keywords = kw_model.extract_keywords(combined_text, keyphrase_ngram_range=(1, 5),
@@ -98,7 +108,7 @@ if __name__ == "__main__":
     df.info()
     model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
     kw_model = KeyBERT(model=model)
-    useHDBSCAN = True
+    useHDBSCAN = False
 
     num_topics = 0
     if not useHDBSCAN:
@@ -112,13 +122,18 @@ if __name__ == "__main__":
 
     if 'cluster_label' not in df.columns:
         if useHDBSCAN:
-            df['cluster_label'] = create_clustering_HDBSCAN(embeddings=abstract_embeddings)
-            num_topics = df['cluster_label'].nunique()
+            # df['cluster_label'] = create_clustering_HDBSCAN(embeddings=abstract_embeddings) # DO NOT USE
+            # num_topics = df['cluster_label'].nunique()
+            pass
         else:
             df['cluster_label'] = create_clustering_KMeans(number_of_topics=num_topics, embeddings=abstract_embeddings)
 
     if 'keywords' not in df.columns:
         df['keywords'] = extract_keyword_column()
+
+    if not os.path.exists(config.PREPARED_DATA_PATH):
+        os.makedirs(os.path.dirname(config.PREPARED_DATA_PATH), exist_ok=True)
+        df.to_parquet(config.PREPARED_DATA_PATH, index=False)
 
     if 'topic_suggestions' not in df.columns:
         created_topics = create_topics(df)
