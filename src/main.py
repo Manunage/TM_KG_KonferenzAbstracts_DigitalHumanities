@@ -12,20 +12,6 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 # ---
 
-def extract_keywords_by_language(row):
-    text = row['combined_text']
-    language = row['language']
-    stop_words_lang = 'english'
-    if language == 'German':
-        stop_words_lang = 'german'
-    return [keyword[0] for keyword in kw_model.extract_keywords(
-        text,
-        keyphrase_ngram_range=(1, 5),
-        stop_words=stop_words_lang,
-        top_n=5
-    )]
-
-
 def create_embeddings():
     logger.info("Generating abstract embeddings...")
     embeddings = model.encode(df['combined_text'].tolist(), show_progress_bar=True)
@@ -67,6 +53,20 @@ def create_clustering_KMeans(number_of_topics, embeddings):
     return cluster_labels
 
 
+def extract_keywords_by_language(row):
+    text = row['combined_text']
+    language = row['language']
+    stop_words_lang = 'english'
+    if language == 'German':
+        stop_words_lang = 'german'
+    return [keyword[0] for keyword in kw_model.extract_keywords(
+        text,
+        keyphrase_ngram_range=(1, 3),
+        stop_words=stop_words_lang,
+        top_n=3
+    )]
+
+
 def extract_keyword_column():
     logger.info("Extracting keywords for each abstract...")
     result = df.apply(extract_keywords_by_language, axis=1)
@@ -88,7 +88,7 @@ def create_topics(df):
 
         if cluster_abstracts:
             combined_text = " ".join(cluster_abstracts)
-            topic_keywords = kw_model.extract_keywords(combined_text, keyphrase_ngram_range=(1, 5),
+            topic_keywords = kw_model.extract_keywords(combined_text, keyphrase_ngram_range=(1, 3),
                                                        stop_words=['english', 'german'], top_n=5)
             created_topics[i] = ", ".join([kw[0] for kw in topic_keywords])
         else:
@@ -112,13 +112,13 @@ if __name__ == "__main__":
 
     num_topics = 0
     if not useHDBSCAN:
-        num_topics = df['topic_id'].nunique()
+        num_topics = df['session_id'].nunique()
 
     if os.path.exists(config.EMBEDDINGS_PATH):
-        abstract_embeddings = np.load(config.EMBEDDINGS_PATH)
+        combined_text_embeddings = np.load(config.EMBEDDINGS_PATH)
     else:
-        abstract_embeddings = create_embeddings()
-        np.save(config.EMBEDDINGS_PATH, abstract_embeddings)
+        combined_text_embeddings = create_embeddings()
+        np.save(config.EMBEDDINGS_PATH, combined_text_embeddings)
 
     if 'cluster_label' not in df.columns:
         if useHDBSCAN:
@@ -126,7 +126,7 @@ if __name__ == "__main__":
             # num_topics = df['cluster_label'].nunique()
             pass
         else:
-            df['cluster_label'] = create_clustering_KMeans(number_of_topics=num_topics, embeddings=abstract_embeddings)
+            df['cluster_label'] = create_clustering_KMeans(number_of_topics=num_topics, embeddings=combined_text_embeddings)
 
     if 'keywords' not in df.columns:
         df['keywords'] = extract_keyword_column()
@@ -135,15 +135,15 @@ if __name__ == "__main__":
         os.makedirs(os.path.dirname(config.PREPARED_DATA_PATH), exist_ok=True)
         df.to_parquet(config.PREPARED_DATA_PATH, index=False)
 
-    if 'topic_suggestions' not in df.columns:
+    if 'session_topic_suggestions' not in df.columns:
         created_topics = create_topics(df)
         for cluster_id, topic_name in created_topics.items():
             print(f"Cluster {cluster_id}: {topic_name}")
-        topic_suggestions = {
+        session_topic_suggestions = {
             cluster_id: [keyword.strip() for keyword in keywords_string.split(',')]
             for cluster_id, keywords_string in created_topics.items()
         }
-        df['topic_suggestions'] = df['cluster_label'].map(topic_suggestions)
+        df['session_topic_suggestions'] = df['cluster_label'].map(session_topic_suggestions)
 
     if not os.path.exists(config.FINAL_DATA_PATH):
         os.makedirs(os.path.dirname(config.FINAL_DATA_PATH), exist_ok=True)

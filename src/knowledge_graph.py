@@ -8,7 +8,7 @@ import config
 DC = Namespace("http://purl.org/dc/elements/1.1/")
 EX = Namespace("http://example.org/abstract_kg#")
 
-def createRdfGraphFromDataFrame(df):
+def createRdfGraphFromOrginalData(df):
     g = Graph()
 
     g.bind("foaf", FOAF)
@@ -142,6 +142,6 @@ def createNxGraphFromRdfGraph(g):
 if __name__ == "__main__":
     df = pd.read_parquet(config.FINAL_DATA_PATH)
 
-    graph_original_data = createRdfGraphFromDataFrame(df)
+    graph_original_data = createRdfGraphFromOrginalData(df)
     nx_graph = createNxGraphFromRdfGraph(graph_original_data)
     nx.write_gexf(nx_graph, config.GRAPH_PATH)
