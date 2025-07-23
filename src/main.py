@@ -1,150 +1,144 @@
-import os
-from keybert import KeyBERT
-import pandas as pd
-from sklearn.cluster import KMeans, HDBSCAN
-from sentence_transformers import SentenceTransformer
+import tkinter as tk
+from tkinter import ttk, messagebox, scrolledtext
 import logging
-import numpy as np
+import threading
 
-import config
-
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
-# ---
-
-def create_embeddings():
-    logger.info("Generating abstract embeddings...")
-    embeddings = model.encode(df['combined_text'].tolist(), show_progress_bar=True)
-    logger.info("Embeddings generated.")
-    return embeddings
-
-'''
-
-# EXPERIMENTAL, UNRESOLVED. DOES NOT PRODUCE GOOD CLUSTERS.
-
-def create_clustering_HDBSCAN(embeddings):
-    logger.info("Starting clustering using HDBSCAN")
-    hdbscan_model = HDBSCAN(min_cluster_size=2)
-    cluster_labels = hdbscan_model.fit_predict(embeddings)
-
-    # Remove noise, as all points should be assigned to a topic
-    noise_indices = np.where(cluster_labels == -1)[0]
-    if len(noise_indices) > 0:
-        logger.info(f"Reassigning {len(noise_indices)} noise points to closest clusters...")
-        most_probable_clusters = np.argmax(hdbscan_model.probabilities_[noise_indices], axis=1)
-        cluster_labels[noise_indices] = most_probable_clusters
-        logger.info("Noise points reassigned.")
-    else:
-        logger.info("No noise points found, all points already assigned to clusters.")
-
-    num_found_clusters = len(np.unique(cluster_labels))
-    logger.info(f"HDBSCAN found {num_found_clusters} clusters (all points now assigned).")
-
-    return cluster_labels
-
-'''
-
-def create_clustering_KMeans(number_of_topics, embeddings):
-    logger.info("Starting clustering using KMeans")
-    logger.info(f"Attempting to find {number_of_topics} topics.")
-    kmeans_model = KMeans(n_clusters=number_of_topics, random_state=42, n_init=10)
-    cluster_labels = kmeans_model.fit_predict(embeddings)
-    logger.info("Abstracts assigned to clusters.")
-    return cluster_labels
+from clean_data import clean_df_pipeline
+from abstract_topic_modeling import abstract_topic_modeling_pipeline
 
 
-def extract_keywords_by_language(row):
-    text = row['combined_text']
-    language = row['language']
-    stop_words_lang = 'english'
-    if language == 'German':
-        stop_words_lang = 'german'
-    return [keyword[0] for keyword in kw_model.extract_keywords(
-        text,
-        keyphrase_ngram_range=(1, 3),
-        stop_words=stop_words_lang,
-        top_n=3
-    )]
+# --- Custom Logging Handler for Tkinter Text Widget ---
+class TextWidgetHandler(logging.Handler):
+    """
+    A custom logging handler that sends log records to a Tkinter Text widget.
+    """
+    def __init__(self, text_widget):
+        super().__init__()
+        self.text_widget = text_widget
+        self.text_widget.config(state='disabled') # Ensure it's read-only by default
+
+    def emit(self, record):
+        """
+        Emits a log record to the text widget.
+        """
+        msg = self.format(record)
+        # Tkinter operations must be on the main thread.
+        # Use after() to schedule the update on the main thread.
+        self.text_widget.after(0, self._insert_text, msg + "\n")
+
+    def _insert_text(self, text):
+        """Helper to insert text into the widget from the main thread."""
+        self.text_widget.config(state='normal')
+        self.text_widget.insert(tk.END, text)
+        self.text_widget.see(tk.END) # Scroll to the end
+        self.text_widget.config(state='disabled')
 
 
-def extract_keyword_column():
-    logger.info("Extracting keywords for each abstract...")
-    result = df.apply(extract_keywords_by_language, axis=1)
-    logger.info("Individual abstract keywords extracted.")
-    return result
+# --- Main execution function for GUI ---
+def execute_topic_modeling_pipeline_in_gui(log_text_widget, status_label, root_window, execute_button):
+    """
+    This function sets up the logging and starts the topic modeling pipeline
+    in a separate thread to keep the GUI responsive.
+    It also manages the state of the execute_button.
+    """
+    # Disable the button immediately to prevent multiple clicks
+    execute_button.config(state='disabled')
+    status_label.config(text="Status: Starting Topic Modeling in background...")
+    log_text_widget.config(state='normal') # Enable for clearing
+    log_text_widget.delete(1.0, tk.END) # Clear previous log
+    log_text_widget.config(state='disabled') # Disable after clearing
+
+    # Get the root logger and configure it to use our custom handler
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO) # Set the minimum level to capture
+    # Remove any existing handlers to prevent duplicate output
+    for handler in list(root_logger.handlers):
+        # Only remove TextWidgetHandler instances to avoid removing other useful handlers
+        if isinstance(handler, TextWidgetHandler):
+            root_logger.removeHandler(handler)
+
+    # Add our custom handler
+    text_handler = TextWidgetHandler(log_text_widget)
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s', datefmt='%H:%M:%S')
+    text_handler.setFormatter(formatter)
+    root_logger.addHandler(text_handler)
+
+    def run_pipeline_target():
+        """
+        This function will be executed in a separate thread.
+        It contains the long-running task and its error handling.
+        """
+        try:
+            abstract_topic_modeling_pipeline()
+            # Use after() to schedule messagebox and status updates on the main thread
+            root_window.after(0, lambda: messagebox.showinfo("Execution Result", "Abstract topic modeling pipeline completed successfully!"))
+        except Exception as e:
+            # Log the error through the logger, which will go to the text widget
+            root_logger.error(f"Abstract topic modeling pipeline failed: {e}", exc_info=True)
+            # Schedule an error message box on the main thread
+            root_window.after(0, lambda: messagebox.showerror("Error", f"Abstract topic modeling pipeline failed: {e}"))
+        finally:
+            # Schedule final status update and re-enable button on the main thread
+            root_window.after(0, lambda: status_label.config(text="Status: Complete!"))
+            root_window.after(0, lambda: execute_button.config(state='normal')) # Re-enable the button
+            # Remove the handler from the logger when done
+            root_logger.removeHandler(text_handler)
+
+    # Create and start the new thread
+    thread = threading.Thread(target=run_pipeline_target)
+    thread.daemon = True # Allow the main program to exit even if thread is still running
+    thread.start()
 
 
-def create_topics(df):
-    logger.info("Defining session topics from clusters...")
-    number_of_topics = df['cluster_label'].nunique()
-    created_topics = {}
-    for i in range(number_of_topics):
-        logger.info("At topic number " + str(i))
+# --- GUI Setup ---
+def run():
+    """
+    Creates and displays the main GUI window for the application.
+    """
+    root = tk.Tk()
+    root.title("Application")
+    root.geometry("600x450")
+    root.resizable(True, True)
 
-        # cluster_abstracts = df[df['cluster_label'] == i]['keywords'].tolist()
-        # cluster_abstracts = [keyword for sublist in cluster_abstracts for keyword in sublist]
+    style = ttk.Style(root)
+    try:
+        style.theme_use('clam')
+    except tk.TclError:
+        print("Clam theme not found, using default.")
+        style.theme_use('default')
 
-        cluster_abstracts = df[df['cluster_label'] == i]['combined_text'].tolist()
+    main_frame = ttk.Frame(root, padding="20 20 20 20")
+    main_frame.pack(expand=True, fill='both')
 
-        if cluster_abstracts:
-            combined_text = " ".join(cluster_abstracts)
-            topic_keywords = kw_model.extract_keywords(combined_text, keyphrase_ngram_range=(1, 3),
-                                                       stop_words=['english', 'german'], top_n=5)
-            created_topics[i] = ", ".join([kw[0] for kw in topic_keywords])
-        else:
-            created_topics[i] = "Undefined Topic"
-    logger.info("Session topics defined.")
-    return created_topics
+    label = ttk.Label(main_frame, text="Click to execute the abstract topic modeling pipeline and view logs.",
+                      font=("Arial", 10))
+    label.pack(pady=10)
+
+    execute_button = ttk.Button(main_frame, text="Execute Topic Modeling Pipeline")
+    execute_button.pack(pady=10)
+
+    status_label = ttk.Label(main_frame, text="Status: Ready", font=("Arial", 9), foreground="gray")
+    status_label.pack(pady=5)
+
+    log_label = ttk.Label(main_frame, text="Program Log:", font=("Arial", 10))
+    log_label.pack(pady=(10, 5), anchor='w')
+
+    log_text_widget = scrolledtext.ScrolledText(main_frame, wrap=tk.WORD, width=60, height=15,
+                                                font=("Consolas", 9), state='disabled',
+                                                borderwidth=1, relief="sunken")
+    log_text_widget.pack(expand=True, fill='both', padx=5, pady=5)
+
+    # Configure the button command to call the new execution function for topic modeling
+    # Pass the root window reference and the button itself for thread-safe GUI updates
+    execute_button.config(command=lambda: execute_topic_modeling_pipeline_in_gui(log_text_widget, status_label, root, execute_button))
+
+    try:
+        clean_df_pipeline()
+    except Exception as e:
+        messagebox.showerror("Startup Error", f"An error occurred during initial data pipeline execution: {e}")
+
+    root.mainloop()
 
 
 if __name__ == "__main__":
-    if os.path.exists(config.FINAL_DATA_PATH):
-        df = pd.read_parquet(config.FINAL_DATA_PATH)
-    elif os.path.exists(config.PREPARED_DATA_PATH):
-        df = pd.read_parquet(config.PREPARED_DATA_PATH)
-    else:
-        df = pd.read_parquet(config.CLEANED_DATA_PATH)
-
-    df.info()
-    model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
-    kw_model = KeyBERT(model=model)
-    useHDBSCAN = False
-
-    num_topics = 0
-    if not useHDBSCAN:
-        num_topics = df['session_id'].nunique()
-
-    if os.path.exists(config.EMBEDDINGS_PATH):
-        combined_text_embeddings = np.load(config.EMBEDDINGS_PATH)
-    else:
-        combined_text_embeddings = create_embeddings()
-        np.save(config.EMBEDDINGS_PATH, combined_text_embeddings)
-
-    if 'cluster_label' not in df.columns:
-        if useHDBSCAN:
-            # df['cluster_label'] = create_clustering_HDBSCAN(embeddings=abstract_embeddings) # DO NOT USE
-            # num_topics = df['cluster_label'].nunique()
-            pass
-        else:
-            df['cluster_label'] = create_clustering_KMeans(number_of_topics=num_topics, embeddings=combined_text_embeddings)
-
-    if 'keywords' not in df.columns:
-        df['keywords'] = extract_keyword_column()
-
-    if not os.path.exists(config.PREPARED_DATA_PATH):
-        os.makedirs(os.path.dirname(config.PREPARED_DATA_PATH), exist_ok=True)
-        df.to_parquet(config.PREPARED_DATA_PATH, index=False)
-
-    if 'session_topic_suggestions' not in df.columns:
-        created_topics = create_topics(df)
-        for cluster_id, topic_name in created_topics.items():
-            print(f"Cluster {cluster_id}: {topic_name}")
-        session_topic_suggestions = {
-            cluster_id: [keyword.strip() for keyword in keywords_string.split(',')]
-            for cluster_id, keywords_string in created_topics.items()
-        }
-        df['session_topic_suggestions'] = df['cluster_label'].map(session_topic_suggestions)
-
-    if not os.path.exists(config.FINAL_DATA_PATH):
-        os.makedirs(os.path.dirname(config.FINAL_DATA_PATH), exist_ok=True)
-        df.to_parquet(config.FINAL_DATA_PATH, index=False)
+    run()

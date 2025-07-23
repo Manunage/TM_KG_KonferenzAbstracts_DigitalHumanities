@@ -1,6 +1,7 @@
 import json
 import os
 import pandas as pd
+from sympy import false
 
 import config
 
@@ -96,7 +97,7 @@ def add_combined_text(df):
     df['combined_text'] = df['title'] + " " + df['content_raw']
     return df
 
-def clean_data_pipeline(df):
+def create_cleaned_df(df):
     df = explode_authors(df)
     df = drop_unused_columns(df)
     df = convert_object_columns_to_string(df)
@@ -111,7 +112,17 @@ def save_cleaned_data(df: pd.DataFrame, filepath:str):
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     df.to_parquet(filepath, index=False)
 
+
+def clean_df_pipeline(force_override=False):
+    if not os.path.exists(config.CLEANED_DATA_PATH):
+        raw_df = load_raw_data(config.RAW_DATA_PATH)
+        cleaned_df = create_cleaned_df(raw_df)
+        save_cleaned_data(df=cleaned_df, filepath=config.CLEANED_DATA_PATH)
+    elif force_override:
+        raw_df = load_raw_data(config.RAW_DATA_PATH)
+        cleaned_df = create_cleaned_df(raw_df)
+        save_cleaned_data(df=cleaned_df, filepath=config.CLEANED_DATA_PATH)
+
+
 if __name__ == "__main__":
-    raw_df = load_raw_data(config.RAW_DATA_PATH)
-    cleaned_df = clean_data_pipeline(raw_df)
-    save_cleaned_data(df=cleaned_df, filepath=config.CLEANED_DATA_PATH)
+    clean_df_pipeline()
