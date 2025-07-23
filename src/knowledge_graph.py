@@ -76,6 +76,73 @@ def createRdfGraphFromOrginalData(df):
     return g
 
 
+def createRdfGraphFromGeneratedData(df):
+    g = Graph()
+
+    g.bind("foaf", FOAF)
+    g.bind("rdf", RDF)
+    g.bind("rdfs", RDFS)
+    g.bind("xsd", XSD)
+    g.bind("dc", DC)
+    g.bind("ex", EX)
+
+    created_abstracts = set()
+    created_authors = set()
+    created_topics = set()
+    created_sessions = set()
+
+    for index, row in df.iterrows():
+
+        # ABSTRACTS
+        abstract_id = row['id']
+        abstract_uri = EX[f"abstract_{abstract_id}"]
+        if abstract_uri not in created_abstracts:
+            g.add((abstract_uri, RDF.type, EX.Abstract))
+            g.add((abstract_uri, DC.title, Literal(row['title'], lang=row['language'])))
+            g.add((abstract_uri, DC.language, Literal(row['language'])))
+            g.add((abstract_uri, EX.hasAbstractText, Literal(row['content_raw'], lang=row['language'])))
+            if isinstance(row['keywords'], list):
+                for keyword_text in row['keywords']:
+                    g.add((abstract_uri, EX.hasKeyword, Literal(keyword_text)))
+            created_abstracts.add(abstract_uri)
+
+        # AUTHORS
+        author_id = row['author_id']
+        author_uri = EX[f"author_{author_id}"]
+        if author_uri not in created_authors:
+            g.add((author_uri, RDF.type, FOAF.Person))
+            g.add((author_uri, FOAF.name, Literal(f"Author {author_id}")))
+            g.add((author_uri, EX.academicDegree, Literal(row['academicdegree'])))
+            g.add((author_uri, EX.affiliationOrganization, Literal(row['affiliationorganisation'])))
+            g.add((author_uri, EX.affiliationCity, Literal(row['affiliationcity'])))
+            g.add((author_uri, EX.affiliationCountry, Literal(row['affiliationcountry'])))
+            created_authors.add(author_uri)
+
+        # TOPICS
+        topic_id = row['topic_id']
+        topic_title = row['topic_title']
+        topic_uri = EX[f"topic_{topic_id}"]
+        if topic_uri not in created_topics:
+            g.add((topic_uri, RDF.type, EX.Topic))
+            g.add((topic_uri, DC.title, Literal(topic_title, lang=row['language'])))
+            created_topics.add(topic_uri)
+
+        # SESSIONS
+        session_id = row['cluster_label']
+        session_title = row['session_topic_suggestions']
+        session_uri = EX[f"session_{session_id}"]
+        if session_uri not in created_sessions:
+            g.add((session_uri, RDF.type, EX.Session))
+            g.add((session_uri, DC.title, Literal(session_title, lang=row['language'])))
+            created_sessions.add(session_uri)
+
+        # LINKS
+        g.add((abstract_uri, DC.creator, author_uri))
+        g.add((abstract_uri, EX.dealsWithTopic, topic_uri))
+        g.add((abstract_uri, EX.partOfSession, session_uri))
+
+    return g
+
 def createNxGraphFromRdfGraph(g):
     nx_graph = nx.DiGraph()
 
@@ -143,5 +210,9 @@ if __name__ == "__main__":
     df = pd.read_parquet(config.FINAL_DATA_PATH)
 
     graph_original_data = createRdfGraphFromOrginalData(df)
-    nx_graph = createNxGraphFromRdfGraph(graph_original_data)
-    nx.write_gexf(nx_graph, config.GRAPH_PATH)
+    nx_graph_original_data = createNxGraphFromRdfGraph(graph_original_data)
+    nx.write_gexf(nx_graph_original_data, config.GRAPH_ORIGINAL_DATA_PATH)
+
+    graph_generated_data = createRdfGraphFromGeneratedData(df)
+    nx_graph_generated_data = createNxGraphFromRdfGraph(graph_generated_data)
+    nx.write_gexf(nx_graph_generated_data, config.GRAPH_GENERATED_DATA_PATH)
