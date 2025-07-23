@@ -8,4 +8,4 @@ PREPARED_DATA_PATH = os.path.join(PROJECT_ROOT, 'data', 'processed', 'prepared_d
 FINAL_DATA_PATH = os.path.join(PROJECT_ROOT, 'data', 'processed', 'final_dataframe.parquet')
 EMBEDDINGS_PATH = os.path.join(PROJECT_ROOT, 'data', 'processed', 'abstract_embeddings.npy')
 GRAPH_ORIGINAL_DATA_PATH = os.path.join(PROJECT_ROOT, 'data', 'processed', 'kg_original_data.gexf')
-GRAPH_GENERATED_DATA_PATH = os.path.join(PROJECT_ROOT, 'data', 'processed', 'kg_original_data.gexf')
+GRAPH_GENERATED_DATA_PATH = os.path.join(PROJECT_ROOT, 'data', 'processed', 'kg_generated_data.gexf')

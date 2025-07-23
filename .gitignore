@@ -15,3 +15,4 @@ data/processed/abstract_embeddings.npy
 data/processed/cleaned_dataframe.parquet
 data/processed/prepared_dataframe.parquet
 data/processed/kg_original_data.gexf
+data/processed/kg_generated_data.gexf
