@@ -76,13 +76,13 @@ def generate_session_topics_and_knowledge_graph_in_gui(log_text_widget, status_l
         """
         try:
             if force_override:
-                root_logger.info("Executing abstract topic modeling pipeline with force_override=True.")
+                root_logger.info("Generating session topics (forced).")
                 abstract_topic_modeling_pipeline(force_override=True)
             else:
-                root_logger.info("Executing abstract topic modeling pipeline without force_override.")
+                root_logger.info("Generating session topics, if they do not exist yet")
                 abstract_topic_modeling_pipeline()
 
-            root_logger.info("Abstract topic modeling pipeline completed. Now generating knowledge graph.")
+            root_logger.info("Session topic generation completed. Now generating knowledge graph.")
             knowledge_graph_pipeline()
 
             # Use after() to schedule messagebox and status updates on the main thread
