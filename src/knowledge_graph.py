@@ -8,7 +8,7 @@ import config
 DC = Namespace("http://purl.org/dc/elements/1.1/")
 EX = Namespace("http://example.org/abstract_kg#")
 
-def createRdfGraphFromOrginalData(df):
+def create_rdf_graph_from_orginal_data(df):
     g = Graph()
 
     g.bind("foaf", FOAF)
@@ -75,8 +75,7 @@ def createRdfGraphFromOrginalData(df):
 
     return g
 
-
-def createRdfGraphFromGeneratedData(df):
+def create_rdf_graph_from_generated_data(df):
     g = Graph()
 
     g.bind("foaf", FOAF)
@@ -143,7 +142,7 @@ def createRdfGraphFromGeneratedData(df):
 
     return g
 
-def createNxGraphFromRdfGraph(g):
+def create_nx_graph_from_rdf_graph(g):
     nx_graph = nx.DiGraph()
 
     # Helper function to get a clean label from a URI
@@ -204,15 +203,17 @@ def createNxGraphFromRdfGraph(g):
 
     return nx_graph
 
-
-
-if __name__ == "__main__":
+def knowledge_graph_pipeline():
+    global df
     df = pd.read_parquet(config.FINAL_DATA_PATH)
 
-    graph_original_data = createRdfGraphFromOrginalData(df)
-    nx_graph_original_data = createNxGraphFromRdfGraph(graph_original_data)
+    graph_original_data = create_rdf_graph_from_orginal_data(df)
+    nx_graph_original_data = create_nx_graph_from_rdf_graph(graph_original_data)
     nx.write_gexf(nx_graph_original_data, config.GRAPH_ORIGINAL_DATA_PATH)
 
-    graph_generated_data = createRdfGraphFromGeneratedData(df)
-    nx_graph_generated_data = createNxGraphFromRdfGraph(graph_generated_data)
+    graph_generated_data = create_rdf_graph_from_generated_data(df)
+    nx_graph_generated_data = create_nx_graph_from_rdf_graph(graph_generated_data)
     nx.write_gexf(nx_graph_generated_data, config.GRAPH_GENERATED_DATA_PATH)
+
+if __name__ == "__main__":
+    knowledge_graph_pipeline()
