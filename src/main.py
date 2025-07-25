@@ -5,7 +5,8 @@ import threading
 
 from clean_data import clean_df_pipeline
 from abstract_topic_modeling import abstract_topic_modeling_pipeline
-from knowledge_graph import knowledge_graph_pipeline
+from knowledge_graph import knowledge_graph_pipeline, open_graph
+import config
 
 
 # --- Custom Logging Handler for Tkinter Text Widget ---
@@ -17,15 +18,13 @@ class TextWidgetHandler(logging.Handler):
     def __init__(self, text_widget):
         super().__init__()
         self.text_widget = text_widget
-        self.text_widget.config(state='disabled')  # Ensure it's read-only by default
+        self.text_widget.config(state='disabled')  # read-only
 
     def emit(self, record):
         """
         Emits a log record to the text widget.
         """
         msg = self.format(record)
-        # Tkinter operations must be on the main thread.
-        # Use after() to schedule the update on the main thread.
         self.text_widget.after(0, self._insert_text, msg + "\n")
 
     def _insert_text(self, text):
@@ -38,23 +37,21 @@ class TextWidgetHandler(logging.Handler):
 
 # --- Main execution function for GUI ---
 def generate_session_topics_and_knowledge_graph_in_gui(log_text_widget, status_label, root_window, execute_button,
-                                                       force_override_var):
-    """
-    This function sets up the logging and starts the topic modeling pipeline
-    in a separate thread to keep the GUI responsive.
-    It also manages the state of the execute_button and uses the force_override setting.
-    """
-    # Disable the button immediately to prevent multiple clicks
+                                                       force_override_var, original_graph_button,
+                                                       generated_graph_button):
+    # Disable buttons to prevent multiple clicks
     execute_button.config(state='disabled')
-    status_label.config(text="Status: Generating session topic suggestions...") # Updated status
-    log_text_widget.config(state='normal')  # Enable for clearing
-    log_text_widget.delete(1.0, tk.END)  # Clear previous log
-    log_text_widget.config(state='disabled')  # Disable after clearing
+    original_graph_button.config(state='disabled')
+    generated_graph_button.config(state='disabled')
 
-    # Get the current value of the checkbox
+    status_label.config(text="Status: Generating session topic suggestions...")
+    log_text_widget.config(state='normal')
+    log_text_widget.delete(1.0, tk.END)
+    log_text_widget.config(state='disabled')
+
+    # Get checkbox
     force_override = force_override_var.get()
 
-    # Get the root logger and configure it to use our custom handler
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.INFO)  # Set the minimum level to capture
     # Remove any existing handlers to prevent duplicate output
@@ -63,17 +60,13 @@ def generate_session_topics_and_knowledge_graph_in_gui(log_text_widget, status_l
         if isinstance(handler, TextWidgetHandler):
             root_logger.removeHandler(handler)
 
-    # Add our custom handler
+    # Add custom handler
     text_handler = TextWidgetHandler(log_text_widget)
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s', datefmt='%H:%M:%S')
     text_handler.setFormatter(formatter)
     root_logger.addHandler(text_handler)
 
     def run_pipeline_target():
-        """
-        This function will be executed in a separate thread.
-        It contains the long-running task and its error handling.
-        """
         try:
             if force_override:
                 root_logger.info("Generating session topics (forced).")
@@ -85,18 +78,26 @@ def generate_session_topics_and_knowledge_graph_in_gui(log_text_widget, status_l
             root_logger.info("Session topic generation completed. Now generating knowledge graph.")
             knowledge_graph_pipeline()
 
-            # Use after() to schedule messagebox and status updates on the main thread
+            root_logger.info(f"Original data graph saved to: {config.GRAPH_ORIGINAL_DATA_PATH}")
+            root_logger.info(f"Generated data graph saved to: {config.GRAPH_GENERATED_DATA_PATH}")
+            root_logger.info("You can now open the graph files using the buttons.") # Updated message
+
+            # Schedule messagebox and status updates on the main thread
             root_window.after(0, lambda: messagebox.showinfo("Execution Result",
-                                                             "Session topic suggestions and knowledge graph generated successfully!")) # Updated message
+                                                             "Session topic suggestions and knowledge graph generated successfully!\n\nYou can now open the graph files using the buttons."))
+            # Enable the graph opening buttons on the main thread
+            root_window.after(0, lambda: original_graph_button.config(state='normal'))
+            root_window.after(0, lambda: generated_graph_button.config(state='normal'))
+
         except Exception as e:
             # Log the error through the logger, which will go to the text widget
             root_logger.error(f"Pipeline failed: {e}", exc_info=True) # Generalizing error message
             # Schedule an error message box on the main thread
             root_window.after(0, lambda: messagebox.showerror("Error", f"Pipeline failed: {e}"))
         finally:
-            # Schedule final status update and re-enable button on the main thread
             root_window.after(0, lambda: status_label.config(text="Status: Complete!"))
-            root_window.after(0, lambda: execute_button.config(state='normal'))  # Re-enable the button
+            root_window.after(0, lambda: execute_button.config(state='normal'))
+
             # Remove the handler from the logger when done
             root_logger.removeHandler(text_handler)
 
@@ -108,12 +109,9 @@ def generate_session_topics_and_knowledge_graph_in_gui(log_text_widget, status_l
 
 # --- GUI Setup ---
 def run():
-    """
-    Creates and displays the main GUI window for the application.
-    """
     root = tk.Tk()
     root.title("Application")
-    root.geometry("600x450")
+    root.geometry("600x600")
     root.resizable(True, True)
 
     style = ttk.Style(root)
@@ -131,20 +129,35 @@ def run():
     label.pack(pady=10)
 
     execute_button = ttk.Button(main_frame, text="Generate topic suggestions and knowledge graph file")
-    execute_button.pack(pady=10) # Button packed first
+    execute_button.pack(pady=10)
 
     # Variable to hold the state of the checkbox
-    force_override_var = tk.BooleanVar(value=False)  # Default to False
-
+    force_override_var = tk.BooleanVar(value=False)
     # Checkbox for force_override
     override_checkbox = ttk.Checkbutton(main_frame,
                                         text="Force Override Existing Data",
                                         variable=force_override_var,
                                         onvalue=True, offvalue=False)
-    override_checkbox.pack(pady=5) # Checkbox packed second, after the button
+    override_checkbox.pack(pady=5)
+
+    # --- Graph Opening Buttons Frame ---
+    graph_buttons_frame = ttk.Frame(main_frame)
+    graph_buttons_frame.pack(pady=5)
+
+    original_graph_button = ttk.Button(graph_buttons_frame, text="Open Original Data Graph",
+                                       command=lambda: open_graph(config.GRAPH_ORIGINAL_DATA_PATH))
+    original_graph_button.pack(side='left', padx=5)
+    original_graph_button.config(state='disabled')
+
+    generated_graph_button = ttk.Button(graph_buttons_frame, text="Open Generated Data Graph",
+                                        command=lambda: open_graph(config.GRAPH_GENERATED_DATA_PATH))
+    generated_graph_button.pack(side='left', padx=5)
+    generated_graph_button.config(state='disabled')
+    # --- End Graph Opening Buttons ---
 
     status_label = ttk.Label(main_frame, text="Status: Ready", font=("Arial", 9), foreground="gray")
     status_label.pack(pady=5)
+
 
     log_label = ttk.Label(main_frame, text="Program Log:", font=("Arial", 10))
     log_label.pack(pady=(10, 5), anchor='w')
@@ -154,11 +167,13 @@ def run():
                                                 borderwidth=1, relief="sunken")
     log_text_widget.pack(expand=True, fill='both', padx=5, pady=5)
 
-    # Configure the button command to call the execution function for topic modeling
-    # Pass the root window reference, the button itself, and the force_override_var
+
     execute_button.config(
-        command=lambda: generate_session_topics_and_knowledge_graph_in_gui(log_text_widget, status_label, root, execute_button,
-                                                                           force_override_var))
+        command=lambda: generate_session_topics_and_knowledge_graph_in_gui(
+            log_text_widget, status_label, root, execute_button,
+            force_override_var, original_graph_button, generated_graph_button
+        )
+    )
 
     try:
         clean_df_pipeline()

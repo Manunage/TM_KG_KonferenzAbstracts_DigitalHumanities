@@ -1,3 +1,7 @@
+import os
+import platform
+import subprocess
+
 from rdflib import Graph, Literal, Namespace, URIRef, BNode
 from rdflib.namespace import FOAF, RDF, RDFS, XSD
 import networkx as nx
@@ -202,6 +206,20 @@ def create_nx_graph_from_rdf_graph(g):
     nx_graph.remove_nodes_from(nodes_to_remove)
 
     return nx_graph
+
+
+def open_graph(path):
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"No such file: {path!r}")
+
+    system = platform.system()
+    if system == 'Windows':
+        os.startfile(path)
+    elif system == 'Darwin':
+        subprocess.run(['open', path], check=True)
+    else:
+        subprocess.run(['xdg-open', path], check=True)
+
 
 def knowledge_graph_pipeline():
     global df
