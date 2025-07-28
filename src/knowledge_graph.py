@@ -12,7 +12,7 @@ import config
 DC = Namespace("http://purl.org/dc/elements/1.1/")
 EX = Namespace("http://example.org/abstract_kg#")
 
-def create_rdf_graph_from_orginal_data(df):
+def create_rdf_graph_from_original_data(df):
     g = Graph()
 
     g.bind("foaf", FOAF)
@@ -37,9 +37,9 @@ def create_rdf_graph_from_orginal_data(df):
             g.add((abstract_uri, DC.title, Literal(row['title'], lang=row['language'])))
             g.add((abstract_uri, DC.language, Literal(row['language'])))
             g.add((abstract_uri, EX.hasAbstractText, Literal(row['content_raw'], lang=row['language'])))
-            if isinstance(row['keywords'], list):
-                for keyword_text in row['keywords']:
-                    g.add((abstract_uri, EX.hasKeyword, Literal(keyword_text)))
+            if isinstance(row['abstract_keywords'], list):
+                for keyword_text in row['abstract_keywords']:
+                    g.add((abstract_uri, EX.hasAbtractKeyword, Literal(keyword_text)))
             created_abstracts.add(abstract_uri)
 
         # AUTHORS
@@ -61,6 +61,9 @@ def create_rdf_graph_from_orginal_data(df):
         if topic_uri not in created_topics:
             g.add((topic_uri, RDF.type, EX.Topic))
             g.add((topic_uri, DC.title, Literal(topic_title, lang=row['language'])))
+            if isinstance(row['topic_keywords'], list):
+                for keyword_text in row['topic_keywords']:
+                    g.add((topic_uri, EX.hasTopicKeyword, Literal(keyword_text)))
             created_topics.add(topic_uri)
 
         # SESSIONS
@@ -104,9 +107,9 @@ def create_rdf_graph_from_generated_data(df):
             g.add((abstract_uri, DC.title, Literal(row['title'], lang=row['language'])))
             g.add((abstract_uri, DC.language, Literal(row['language'])))
             g.add((abstract_uri, EX.hasAbstractText, Literal(row['content_raw'], lang=row['language'])))
-            if isinstance(row['keywords'], list):
-                for keyword_text in row['keywords']:
-                    g.add((abstract_uri, EX.hasKeyword, Literal(keyword_text)))
+            if isinstance(row['abstract_keywords'], list):
+                for keyword_text in row['abstract_keywords']:
+                    g.add((abstract_uri, EX.hasAbtractKeyword, Literal(keyword_text)))
             created_abstracts.add(abstract_uri)
 
         # AUTHORS
@@ -128,11 +131,19 @@ def create_rdf_graph_from_generated_data(df):
         if topic_uri not in created_topics:
             g.add((topic_uri, RDF.type, EX.Topic))
             g.add((topic_uri, DC.title, Literal(topic_title, lang=row['language'])))
+            if isinstance(row['topic_keywords'], list):
+                for keyword_text in row['topic_keywords']:
+                    g.add((topic_uri, EX.hasTopicKeyword, Literal(keyword_text)))
             created_topics.add(topic_uri)
 
         # SESSIONS
         session_id = row['cluster_label']
-        session_title = row['session_topic_suggestions']
+        # Ensure session_title is a single string for DC.title
+        if isinstance(row['cluster_keywords'], list):
+            session_title = ", ".join(row['cluster_keywords'])
+        else:
+            session_title = str(row['cluster_keywords']) # Ensure it's a string even if not a list
+
         session_uri = EX[f"session_{session_id}"]
         if session_uri not in created_sessions:
             g.add((session_uri, RDF.type, EX.Session))
@@ -183,13 +194,24 @@ def create_nx_graph_from_rdf_graph(g):
                 if rdf_type_val:
                     nx_graph.nodes[node_str]['rdf_type'] = get_label_from_uri(str(rdf_type_val))
 
-                # Add other literal properties as node attributes
+                # Collect all literal properties for the node
+                literal_props = {}
                 for prop, val in g.predicate_objects(node_uri):
                     if isinstance(val, Literal):
                         prop_name = get_label_from_uri(str(prop))
                         # Avoid overwriting 'label' or 'rdf_type' if they were set above
-                        if prop_name not in ['label', 'type']:  # 'type' is for RDF.type
-                            nx_graph.nodes[node_str][prop_name] = str(val)
+                        if prop_name not in ['label', 'rdf_type']: # 'rdf_type' is the key used above for RDF.type
+                            if prop_name in literal_props:
+                                literal_props[prop_name].append(str(val))
+                            else:
+                                literal_props[prop_name] = [str(val)]
+
+                # Add collected literals to the NetworkX node, joining lists if multiple values exist
+                for prop_name, values in literal_props.items():
+                    if len(values) > 1:
+                        nx_graph.nodes[node_str][prop_name] = ", ".join(values)
+                    else:
+                        nx_graph.nodes[node_str][prop_name] = values[0]
 
     # Add edges
     for s, p, o in g:
@@ -225,7 +247,7 @@ def knowledge_graph_pipeline():
     global df
     df = pd.read_parquet(config.FINAL_DATA_PATH)
 
-    graph_original_data = create_rdf_graph_from_orginal_data(df)
+    graph_original_data = create_rdf_graph_from_original_data(df)
     nx_graph_original_data = create_nx_graph_from_rdf_graph(graph_original_data)
     nx.write_gexf(nx_graph_original_data, config.GRAPH_ORIGINAL_DATA_PATH)
 
