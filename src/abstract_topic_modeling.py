@@ -92,7 +92,6 @@ def abstract_topic_modeling_pipeline(force_override=False):
     unique_topic_ids = df['topic_id'].unique().tolist()
     logger.info(f"Identified unique topic_ids for partitioning: {unique_topic_ids}")
 
-    # Initialize a counter for global cluster IDs
     current_global_cluster_offset = 0
 
     for topic_id in unique_topic_ids:
@@ -104,26 +103,22 @@ def abstract_topic_modeling_pipeline(force_override=False):
 
         subset_num_sessions = current_subset_df['session_id'].nunique()
 
-        # Generate local cluster labels (0-indexed within the subset)
         subset_cluster_labels = create_clustering_KMeans(
             df_input=current_subset_df,
             number_of_topics=subset_num_sessions,
             embeddings=current_subset_embeddings
         )
 
-        # Apply the current global offset to the cluster labels before assigning to the main DataFrame
         df.loc[current_subset_indices, 'cluster_label'] = subset_cluster_labels + current_global_cluster_offset
 
         individual_keywords = current_subset_df.apply(lambda row: extract_keywords_by_language(row, kw_model_instance), axis=1)
         df.loc[current_subset_indices, 'keywords'] = individual_keywords
 
-        # Pass the local cluster labels to create_topics as it expects 0-indexed clusters
         temp_df_for_topics = current_subset_df.copy()
         temp_df_for_topics['cluster_label'] = subset_cluster_labels
 
         subset_created_topics = create_topics(temp_df_for_topics, kw_model_instance)
 
-        # Map the topic suggestions using the global, offset cluster IDs as keys
         session_topic_suggestions_map = {
             (cluster_id + current_global_cluster_offset): [keyword.strip() for keyword in keywords_string.split(',')]
             for cluster_id, keywords_string in subset_created_topics.items()
@@ -131,14 +126,9 @@ def abstract_topic_modeling_pipeline(force_override=False):
         df.loc[current_subset_indices, 'session_topic_suggestions'] = \
             df.loc[current_subset_indices, 'cluster_label'].map(session_topic_suggestions_map)
 
-        # Increment the global offset for the next topic_id
         current_global_cluster_offset += subset_num_sessions
 
         logger.info(f"--- Finished processing topic_id: {topic_id} ---")
-
-    os.makedirs(os.path.dirname(config.PREPARED_DATA_PATH), exist_ok=True)
-    df.to_parquet(config.PREPARED_DATA_PATH, index=False)
-    logger.info(f"Intermediate prepared data saved to {config.PREPARED_DATA_PATH}.")
 
     os.makedirs(os.path.dirname(config.FINAL_DATA_PATH), exist_ok=True)
     df.to_parquet(config.FINAL_DATA_PATH, index=False)
