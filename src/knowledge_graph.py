@@ -6,11 +6,13 @@ from rdflib import Graph, Literal, Namespace, URIRef, BNode
 from rdflib.namespace import FOAF, RDF, RDFS, XSD
 import networkx as nx
 import pandas as pd
+import numpy as np
 
 import config
 
 DC = Namespace("http://purl.org/dc/elements/1.1/")
 EX = Namespace("http://example.org/abstract_kg#")
+
 
 def create_rdf_graph_from_original_data(df):
     g = Graph()
@@ -37,9 +39,25 @@ def create_rdf_graph_from_original_data(df):
             g.add((abstract_uri, DC.title, Literal(row['title'], lang=row['language'])))
             g.add((abstract_uri, DC.language, Literal(row['language'])))
             g.add((abstract_uri, EX.hasAbstractText, Literal(row['content_raw'], lang=row['language'])))
-            if isinstance(row['abstract_keywords'], list):
-                for keyword_text in row['abstract_keywords']:
-                    g.add((abstract_uri, EX.hasAbtractKeyword, Literal(keyword_text)))
+
+            abstract_keywords_val = row['abstract_keywords']
+            keywords_to_add = []
+            if pd.isna(abstract_keywords_val).all() if isinstance(abstract_keywords_val,
+                                                                  (pd.Series, np.ndarray)) else pd.isna(
+                    abstract_keywords_val):
+                pass  # No keywords to process if NaN or all elements are NaN
+            elif isinstance(abstract_keywords_val, (list, pd.Series, np.ndarray)):
+                for item in abstract_keywords_val:
+                    if item is not None and str(
+                            item).strip():  # Ensure individual keyword is not empty or just whitespace
+                        keywords_to_add.append(str(item).strip())
+            else:
+                if abstract_keywords_val is not None and str(
+                        abstract_keywords_val).strip():  # Ensure it's not just whitespace
+                    keywords_to_add.append(str(abstract_keywords_val).strip())
+
+            for keyword_text in keywords_to_add:
+                g.add((abstract_uri, EX.hasAbstractKeyword, Literal(keyword_text)))
             created_abstracts.add(abstract_uri)
 
         # AUTHORS
@@ -61,9 +79,25 @@ def create_rdf_graph_from_original_data(df):
         if topic_uri not in created_topics:
             g.add((topic_uri, RDF.type, EX.Topic))
             g.add((topic_uri, DC.title, Literal(topic_title, lang=row['language'])))
-            if isinstance(row['topic_keywords'], list):
-                for keyword_text in row['topic_keywords']:
-                    g.add((topic_uri, EX.hasTopicKeyword, Literal(keyword_text)))
+
+            topic_keywords_val = row['topic_keywords']
+            keywords_to_add = []
+            if pd.isna(topic_keywords_val).all() if isinstance(topic_keywords_val,
+                                                               (pd.Series, np.ndarray)) else pd.isna(
+                    topic_keywords_val):
+                pass  # No keywords to process if NaN or all elements are NaN
+            elif isinstance(topic_keywords_val, (list, pd.Series, np.ndarray)):
+                for item in topic_keywords_val:
+                    if item is not None and str(
+                            item).strip():  # Ensure individual keyword is not empty or just whitespace
+                        keywords_to_add.append(str(item).strip())
+            else:
+                if topic_keywords_val is not None and str(
+                        topic_keywords_val).strip():  # Ensure it's not just whitespace
+                    keywords_to_add.append(str(topic_keywords_val).strip())
+
+            for keyword_text in keywords_to_add:
+                g.add((topic_uri, EX.hasTopicKeyword, Literal(keyword_text)))
             created_topics.add(topic_uri)
 
         # SESSIONS
@@ -81,6 +115,7 @@ def create_rdf_graph_from_original_data(df):
         g.add((abstract_uri, EX.partOfSession, session_uri))
 
     return g
+
 
 def create_rdf_graph_from_generated_data(df):
     g = Graph()
@@ -107,9 +142,25 @@ def create_rdf_graph_from_generated_data(df):
             g.add((abstract_uri, DC.title, Literal(row['title'], lang=row['language'])))
             g.add((abstract_uri, DC.language, Literal(row['language'])))
             g.add((abstract_uri, EX.hasAbstractText, Literal(row['content_raw'], lang=row['language'])))
-            if isinstance(row['abstract_keywords'], list):
-                for keyword_text in row['abstract_keywords']:
-                    g.add((abstract_uri, EX.hasAbtractKeyword, Literal(keyword_text)))
+
+            abstract_keywords_val = row['abstract_keywords']
+            keywords_to_add = []
+            if pd.isna(abstract_keywords_val).all() if isinstance(abstract_keywords_val,
+                                                                  (pd.Series, np.ndarray)) else pd.isna(
+                    abstract_keywords_val):
+                pass  # No keywords to process if NaN or all elements are NaN
+            elif isinstance(abstract_keywords_val, (list, pd.Series, np.ndarray)):
+                for item in abstract_keywords_val:
+                    if item is not None and str(
+                            item).strip():  # Ensure individual keyword is not empty or just whitespace
+                        keywords_to_add.append(str(item).strip())
+            else:
+                if abstract_keywords_val is not None and str(
+                        abstract_keywords_val).strip():  # Ensure it's not just whitespace
+                    keywords_to_add.append(str(abstract_keywords_val).strip())
+
+            for keyword_text in keywords_to_add:
+                g.add((abstract_uri, EX.hasAbstractKeyword, Literal(keyword_text)))
             created_abstracts.add(abstract_uri)
 
         # AUTHORS
@@ -131,18 +182,39 @@ def create_rdf_graph_from_generated_data(df):
         if topic_uri not in created_topics:
             g.add((topic_uri, RDF.type, EX.Topic))
             g.add((topic_uri, DC.title, Literal(topic_title, lang=row['language'])))
-            if isinstance(row['topic_keywords'], list):
-                for keyword_text in row['topic_keywords']:
-                    g.add((topic_uri, EX.hasTopicKeyword, Literal(keyword_text)))
+
+            topic_keywords_val = row['topic_keywords']
+            if pd.isna(topic_keywords_val).all() if isinstance(topic_keywords_val,
+                                                               (pd.Series, np.ndarray)) else pd.isna(
+                    topic_keywords_val):
+                pass  # No keywords to process if NaN or all elements are NaN
+            elif isinstance(topic_keywords_val, (list, pd.Series, np.ndarray)):
+                for item in topic_keywords_val:
+                    if item is not None and str(
+                            item).strip():  # Ensure individual keyword is not empty or just whitespace
+                        keywords_to_add.append(str(item).strip())
+            else:
+                if topic_keywords_val is not None and str(
+                        topic_keywords_val).strip():  # Ensure it's not just whitespace
+                    keywords_to_add.append(str(topic_keywords_val).strip())
+
+            for keyword_text in keywords_to_add:
+                g.add((topic_uri, EX.hasTopicKeyword, Literal(keyword_text)))
             created_topics.add(topic_uri)
 
         # SESSIONS
         session_id = row['cluster_label']
-        # Ensure session_title is a single string for DC.title
-        if isinstance(row['cluster_keywords'], list):
-            session_title = ", ".join(row['cluster_keywords'])
+        cluster_keywords_val = row['cluster_keywords']
+        if pd.isna(cluster_keywords_val).all() if isinstance(cluster_keywords_val,
+                                                             (pd.Series, np.ndarray)) else pd.isna(
+                cluster_keywords_val):
+            session_title = ""  # Default to empty string if NaN or all elements are NaN
+        elif isinstance(cluster_keywords_val, (list, pd.Series, np.ndarray)):
+            # Filter out None/empty strings and join
+            valid_keywords = [str(k).strip() for k in cluster_keywords_val if k is not None and str(k).strip()]
+            session_title = ", ".join(valid_keywords)
         else:
-            session_title = str(row['cluster_keywords']) # Ensure it's a string even if not a list
+            session_title = str(cluster_keywords_val).strip()  # Ensure it's a string and strip whitespace
 
         session_uri = EX[f"session_{session_id}"]
         if session_uri not in created_sessions:
@@ -156,6 +228,7 @@ def create_rdf_graph_from_generated_data(df):
         g.add((abstract_uri, EX.partOfSession, session_uri))
 
     return g
+
 
 def create_nx_graph_from_rdf_graph(g):
     nx_graph = nx.DiGraph()
@@ -200,7 +273,7 @@ def create_nx_graph_from_rdf_graph(g):
                     if isinstance(val, Literal):
                         prop_name = get_label_from_uri(str(prop))
                         # Avoid overwriting 'label' or 'rdf_type' if they were set above
-                        if prop_name not in ['label', 'rdf_type']: # 'rdf_type' is the key used above for RDF.type
+                        if prop_name not in ['label', 'rdf_type']:  # 'rdf_type' is the key used above for RDF.type
                             if prop_name in literal_props:
                                 literal_props[prop_name].append(str(val))
                             else:
@@ -254,6 +327,7 @@ def knowledge_graph_pipeline():
     graph_generated_data = create_rdf_graph_from_generated_data(df)
     nx_graph_generated_data = create_nx_graph_from_rdf_graph(graph_generated_data)
     nx.write_gexf(nx_graph_generated_data, config.GRAPH_GENERATED_DATA_PATH)
+
 
 if __name__ == "__main__":
     knowledge_graph_pipeline()
