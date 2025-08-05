@@ -1,12 +1,12 @@
-import tkinter as tk
-from tkinter import ttk, messagebox, scrolledtext
 import logging
 import threading
+import tkinter as tk
+from tkinter import ttk, messagebox, scrolledtext
 
-from clean_data import clean_df_pipeline
-from abstract_topic_modeling import abstract_topic_modeling_pipeline
-from knowledge_graph import knowledge_graph_pipeline, open_graph
 import config
+from abstract_topic_modeling import abstract_topic_modeling_pipeline
+from clean_data import clean_df_pipeline
+from knowledge_graph import knowledge_graph_pipeline, open_graph
 
 
 # --- Custom Logging Handler for Tkinter Text Widget ---
@@ -80,7 +80,7 @@ def generate_session_topics_and_knowledge_graph_in_gui(log_text_widget, status_l
 
             root_logger.info(f"Original data graph saved to: {config.GRAPH_ORIGINAL_DATA_PATH}")
             root_logger.info(f"Generated data graph saved to: {config.GRAPH_GENERATED_DATA_PATH}")
-            root_logger.info("You can now open the graph files using the buttons.") # Updated message
+            root_logger.info("You can now open the graph files using the buttons.")  # Updated message
 
             # Schedule messagebox and status updates on the main thread
             root_window.after(0, lambda: messagebox.showinfo("Execution Result",
@@ -91,7 +91,7 @@ def generate_session_topics_and_knowledge_graph_in_gui(log_text_widget, status_l
 
         except Exception as e:
             # Log the error through the logger, which will go to the text widget
-            root_logger.error(f"Pipeline failed: {e}", exc_info=True) # Generalizing error message
+            root_logger.error(f"Pipeline failed: {e}", exc_info=True)  # Generalizing error message
             # Schedule an error message box on the main thread
             root_window.after(0, lambda: messagebox.showerror("Error", f"Pipeline failed: {e}"))
         finally:
@@ -158,7 +158,6 @@ def run():
     status_label = ttk.Label(main_frame, text="Status: Ready", font=("Arial", 9), foreground="gray")
     status_label.pack(pady=5)
 
-
     log_label = ttk.Label(main_frame, text="Program Log:", font=("Arial", 10))
     log_label.pack(pady=(10, 5), anchor='w')
 
@@ -166,7 +165,6 @@ def run():
                                                 font=("Consolas", 9), state='disabled',
                                                 borderwidth=1, relief="sunken")
     log_text_widget.pack(expand=True, fill='both', padx=5, pady=5)
-
 
     execute_button.config(
         command=lambda: generate_session_topics_and_knowledge_graph_in_gui(

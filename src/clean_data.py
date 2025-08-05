@@ -1,16 +1,17 @@
 import json
 import os
+
 import pandas as pd
-from sympy import false
 
 import config
 
 
-def load_raw_data (filepath:str) -> pd.DataFrame:
+def load_raw_data(filepath: str) -> pd.DataFrame:
     with open(filepath) as f:
         data = json.load(f)
     df = pd.DataFrame(data)
     return df
+
 
 def explode_authors(df):
     # Filter out rows with empty author lists
@@ -26,13 +27,15 @@ def explode_authors(df):
     )
     return df
 
+
 def drop_unused_columns(df):
     columns_to_drop = ['submission_date', 'publication_date', 'content', 'word_count',
                        'keywords', 'inserted', 'updated', 'owner_ref', 'last_editor_ref',
                        'state_key', 'deleted', 'version_number', 'transaction_number',
                        'sequence', 'external_identifiers', 'cpo__co2_id', 'cpo__sinner_id']
-    df = df.drop(columns = columns_to_drop, axis=1)
+    df = df.drop(columns=columns_to_drop, axis=1)
     return df
+
 
 def convert_object_columns_to_string(df):
     for col in df.columns:
@@ -43,6 +46,7 @@ def convert_object_columns_to_string(df):
                 df[col] = df[col].astype('string')
     return df
 
+
 def convert_language_ref_column(df):
     df.rename(columns={'language_ref': 'language'}, inplace=True)
     language_map = {
@@ -52,6 +56,7 @@ def convert_language_ref_column(df):
     df['language'] = df['language'].map(language_map)
     df['language'] = df['language'].astype('string')
     return df
+
 
 def convert_affiliationcountry_ref_column(df):
     country_code_map = {3: "Albania", 4: "Algeria", 11: "Argentina", 12: "Armenia", 14: "Australia",
@@ -84,18 +89,22 @@ def convert_affiliationcountry_ref_column(df):
     df["affiliationcountry"] = df["affiliationcountry"].fillna("Kosovo")
     return df
 
+
 def drop_duplicate_rows(df):
     df = df.drop_duplicates()
     df = df.reset_index(drop=True)
     return df
 
+
 def fix_missing_values_content_raw(df):
     df["content_raw"] = df["content_raw"].fillna("")
     return df
 
+
 def add_combined_text(df):
     df['combined_text'] = df['title'] + " " + df['content_raw']
     return df
+
 
 def create_cleaned_df(df):
     df = explode_authors(df)
@@ -108,7 +117,8 @@ def create_cleaned_df(df):
     df = add_combined_text(df)
     return df
 
-def save_cleaned_data(df: pd.DataFrame, filepath:str):
+
+def save_cleaned_data(df: pd.DataFrame, filepath: str):
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     df.to_parquet(filepath, index=False)
 

@@ -2,11 +2,11 @@ import os
 import platform
 import subprocess
 
+import networkx as nx
+import numpy as np
+import pandas as pd
 from rdflib import Graph, Literal, Namespace, URIRef, BNode
 from rdflib.namespace import FOAF, RDF, RDFS, XSD
-import networkx as nx
-import pandas as pd
-import numpy as np
 
 import config
 
@@ -44,7 +44,7 @@ def create_rdf_graph_from_original_data(df):
             keywords_to_add = []
             if pd.isna(abstract_keywords_val).all() if isinstance(abstract_keywords_val,
                                                                   (pd.Series, np.ndarray)) else pd.isna(
-                    abstract_keywords_val):
+                abstract_keywords_val):
                 pass  # No keywords to process if NaN or all elements are NaN
             elif isinstance(abstract_keywords_val, (list, pd.Series, np.ndarray)):
                 for item in abstract_keywords_val:
@@ -84,7 +84,7 @@ def create_rdf_graph_from_original_data(df):
             keywords_to_add = []
             if pd.isna(topic_keywords_val).all() if isinstance(topic_keywords_val,
                                                                (pd.Series, np.ndarray)) else pd.isna(
-                    topic_keywords_val):
+                topic_keywords_val):
                 pass  # No keywords to process if NaN or all elements are NaN
             elif isinstance(topic_keywords_val, (list, pd.Series, np.ndarray)):
                 for item in topic_keywords_val:
@@ -147,7 +147,7 @@ def create_rdf_graph_from_generated_data(df):
             keywords_to_add = []
             if pd.isna(abstract_keywords_val).all() if isinstance(abstract_keywords_val,
                                                                   (pd.Series, np.ndarray)) else pd.isna(
-                    abstract_keywords_val):
+                abstract_keywords_val):
                 pass  # No keywords to process if NaN or all elements are NaN
             elif isinstance(abstract_keywords_val, (list, pd.Series, np.ndarray)):
                 for item in abstract_keywords_val:
@@ -186,7 +186,7 @@ def create_rdf_graph_from_generated_data(df):
             topic_keywords_val = row['topic_keywords']
             if pd.isna(topic_keywords_val).all() if isinstance(topic_keywords_val,
                                                                (pd.Series, np.ndarray)) else pd.isna(
-                    topic_keywords_val):
+                topic_keywords_val):
                 pass  # No keywords to process if NaN or all elements are NaN
             elif isinstance(topic_keywords_val, (list, pd.Series, np.ndarray)):
                 for item in topic_keywords_val:
@@ -207,7 +207,7 @@ def create_rdf_graph_from_generated_data(df):
         cluster_keywords_val = row['cluster_keywords']
         if pd.isna(cluster_keywords_val).all() if isinstance(cluster_keywords_val,
                                                              (pd.Series, np.ndarray)) else pd.isna(
-                cluster_keywords_val):
+            cluster_keywords_val):
             session_title = ""  # Default to empty string if NaN or all elements are NaN
         elif isinstance(cluster_keywords_val, (list, pd.Series, np.ndarray)):
             # Filter out None/empty strings and join
